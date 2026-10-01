@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Звёздочка сердце для тебя 💖</title>
+    <title>Сердце для тебя 💖</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * { 
@@ -16,25 +16,26 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
+            justify-content: center;
             height: 100vh;
             width: 100vw;
             font-family: Arial, sans-serif;
-            color: #7a1423;
             overflow: hidden;
             position: fixed;
         }
         canvas {
             display: block;
-            margin-top: 20px;
+            width: 100vw;
+            height: 75vh;
         }
         h1 {
-            margin-top: 15px;
-            font-size: 24px;
+            margin-top: 10px;
+            font-size: 26px;
             text-align: center;
             padding: 0 20px;
+            color: #ff4d6d;
             opacity: 0;
-            animation: fadeIn 2s ease 8s forwards;
+            animation: fadeIn 2s ease 6s forwards;
         }
         @keyframes fadeIn {
             to { opacity: 1; }
@@ -53,21 +54,41 @@
         const canvas = document.getElementById('heart');
         const ctx = canvas.getContext('2d');
 
-        // Устанавливаем размер canvas
+        // Устанавливаем физический размер canvas с учётом DPI
         function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight * 0.65;
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
         }
         resizeCanvas();
 
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2 - 30; // Сдвигаем выше
-        const scaleFactor = Math.min(canvas.width / 250, canvas.height / 300);
-        
-        let animationId;
+        // Рабочие размеры (в CSS-пикселях)
+        const W = canvas.getBoundingClientRect().width;
+        const H = canvas.getBoundingClientRect().height;
+
+        // Отступы от краёв (чтобы сердце не вылезало)
+        const paddingX = W * 0.08;   // 8% от ширины
+        const paddingTop = H * 0.05;  // 5% сверху
+        const paddingBottom = H * 0.08; // 8% снизу (место для текста)
+
+        const availableW = W - paddingX * 2;
+        const availableH = H - paddingTop - paddingBottom;
+
+        // Сердце по формуле: ширина ~32, высота ~30 (примерно 1:1)
+        // Максимальный scale = 16, значит максимальный размер = 32 * 16 = 512 единиц
+        // Подбираем множитель так, чтобы сердце влезло
+        const heartMaxSize = 32 * 16;
+        const fitScale = Math.min(availableW, availableH) / heartMaxSize;
+
+        const centerX = W / 2;
+        const centerY = paddingTop + availableH / 2;
+
         const texts = [];
-        
-        // Генерируем все точки сердца заранее
+        const color = '#ff2d55'; // насыщенный красный
+
+        // Генерируем все точки сердца
         for (let s = 11; s < 17; s++) {
             for (let i = 0; i < 120; i++) {
                 const t = (i * 2 * Math.PI) / 120;
@@ -76,58 +97,50 @@
                           - 2 * Math.cos(3 * t) - Math.cos(4 * t);
                 
                 texts.push({
-                    x: centerX + x * s * scaleFactor,
-                    y: centerY - y * s * scaleFactor, // Инвертируем Y для правильного отображения
+                    x: x * s * fitScale + centerX,
+                    y: -y * s * fitScale + centerY,
                     opacity: 0,
-                    targetOpacity: 0.4 + Math.random() * 0.3
+                    targetOpacity: 0.4 + Math.random() * 0.5
                 });
             }
         }
 
         let currentIndex = 0;
-        const fontSize = Math.max(9, scaleFactor * 12);
-        
+        const fontSize = Math.max(9, fitScale * 14);
+        let animationId;
+
         function animate() {
-            // Очищаем canvas
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Полная очистка (без шлейфа — чтобы текст не сливался)
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, W, H);
             
-            // Рисуем уже появившиеся тексты
-            for (let i = 0; i < texts.length; i++) {
+            for (let i = 0; i <= currentIndex && i < texts.length; i++) {
                 const text = texts[i];
                 
-                if (i <= currentIndex) {
-                    // Плавное появление
-                    if (text.opacity < text.targetOpacity) {
-                        text.opacity += 0.03;
-                    }
-                    
-                    ctx.globalAlpha = text.opacity;
-                    ctx.fillStyle = '#ffb6c1';
-                    ctx.font = `bold ${fontSize}px Arial`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText('I love you', text.x, text.y);
+                if (text.opacity < text.targetOpacity) {
+                    text.opacity += 0.08;
                 }
+                
+                ctx.globalAlpha = text.opacity;
+                ctx.fillStyle = color;
+                ctx.font = `bold ${fontSize}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('I love you', text.x, text.y);
             }
             
             ctx.globalAlpha = 1;
             
-            // Переходим к следующей точке
             if (currentIndex < texts.length - 1) {
                 currentIndex++;
                 animationId = requestAnimationFrame(animate);
             }
         }
 
-        // Запускаем анимацию
         animate();
 
-        // Очистка при закрытии
         window.addEventListener('beforeunload', () => {
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-            }
+            if (animationId) cancelAnimationFrame(animationId);
         });
     </script>
 </body>
